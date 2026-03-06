@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>Glassmorphism Gacha v3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            /* 调高不透明度，确保清晰度 */
+            --card-bg: rgba(255, 255, 255, 0.85); 
+            --glass-border: rgba(255, 255, 255, 1);
+            --text-dark: #334155;
+        }
+
+        body {
+            margin: 0; padding: 0; min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            /* 背景改为渐变蓝粉色 */
+            background: linear-gradient(135deg, #fbc2eb 0%, #a1c4fd 100%);
+            font-family: 'PingFang SC', sans-serif;
+            color: var(--text-dark);
+            overflow: hidden;
+        }
+
+        /* 浮动装饰球 */
+        .bg-shapes {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; overflow: hidden;
+        }
+        .shape {
+            position: absolute; filter: blur(50px); border-radius: 50%;
+            opacity: 0.4; animation: float 20s infinite alternate;
+        }
+        .shape-1 { width: 400px; height: 400px; background: #fff; top: -100px; left: -100px; }
+        .shape-2 { width: 300px; height: 300px; background: #fbc2eb; bottom: -50px; right: -50px; }
+
+        @keyframes float {
+            from { transform: translate(0, 0); }
+            to { transform: translate(100px, 60px); }
+        }
+
+        /* 毛玻璃面板 */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 2px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 卡牌样式：白色半透明卡片 */
+        .card-container {
+            display: flex; gap: 25px; padding: 40px 100px;
+            transition: transform 0.1s ease-out; width: max-content;
+        }
+
+        .card {
+            min-width: 170px; height: 240px; position: relative;
+            cursor: pointer; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+
+        .card:hover:not(.flipped) { transform: translateY(-20px) scale(1.05); }
+        .card.flipped { transform: rotateY(180deg); }
+
+        .card-face {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; border-radius: 18px;
+            border: 2px solid var(--glass-border);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: var(--card-bg); /* 白色半透明卡片 */
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+        }
+
+        .card-back { background: var(--card-bg); }
+        .card-back::after {
+            content: '?'; font-size: 4rem; font-weight: 200; color: rgba(0,0,0,0.1);
+        }
+        
+        .card-front {
+            transform: rotateY(180deg);
+            background: #ffffff; /* 翻开后更加实体化 */
+        }
+
+        /* 加载动画圆环 */
+        .spinner {
+            width: 35px; height: 35px;
+            border: 4px solid rgba(161, 196, 253, 0.3);
+            border-top: 4px solid #a1c4fd;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* 输入框与按钮 */
+        input {
+            background: rgba(255, 255, 255, 0.5);
+            border: 2px solid #fff;
+            color: var(--text-dark);
+            border-radius: 15px;
+        }
+        button {
+            background: #fff; color: #7895cb;
+            border-radius: 15px; transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        button:hover { transform: scale(1.05); background: #f8fbff; }
+
+        /* 下方提示框样式 */
+        #status-msg {
+            margin-top: 20px; opacity: 0; transform: translateY(20px);
+            transition: all 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+        #status-msg.show { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+
+    <div class="bg-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+    </div>
+
+    <div id="login-screen" class="z-50 text-center glass-panel p-16">
+        <h1 class="text-3xl font-bold mb-8 tracking-widest text-slate-600">NEW YEAR GACHA</h1>
+        <div class="flex flex-col space-y-4">
+            <input type="text" id="username" placeholder="请输入姓名" class="px-6 py-4 text-xl text-center outline-none">
+            <button onclick="startGacha()" class="px-8 py-4 font-bold text-lg uppercase tracking-wider">进入系统</button>
+        </div>
+    </div>
+
+    <div id="gacha-screen" class="hidden flex-col items-center justify-center w-full h-full">
+        
+        <div id="scroll-wrapper" class="w-full overflow-hidden flex items-center h-80">
+            <div class="card-container" id="card-list"></div>
+        </div>
+
+        <div id="status-msg" class="glass-panel px-12 py-6 text-center">
+            <div id="msg-content" class="text-lg font-medium"></div>
+        </div>
+
+        <div class="fixed bottom-6 text-slate-500/70 text-xs tracking-widest">
+            GOOGLE APPS SCRIPT 返回有延迟，点击抽取后请稍等几秒
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzobetP9Gd_72fo_VADLhqYELmXMxiXsvDytYPD127QThEYQx02MegSbwURImUY4B7Sww/exec';
+        let currentUser = "";
+        let scrollPos = 0;
+        let isDrawing = false;
+        let hasFinished = false;
+
+        function startGacha() {
+            currentUser = document.getElementById('username').value.trim();
+            if (!currentUser) return;
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('gacha-screen').classList.replace('hidden', 'flex');
+            initCards();
+            // 注意：这里删除了自动检查 checkUserStatus，一切由点击触发
+        }
+
+        function initCards() {
+            const list = document.getElementById('card-list');
+            list.innerHTML = '';
+            for (let i = 0; i < 17; i++) {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-face card-back"></div>
+                    <div class="card-face card-front">
+                        <div class="loading-state flex flex-col items-center">
+                            <div class="spinner mb-3"></div>
+                            <span class="text-xs text-slate-400">正在同步结果...</span>
+                        </div>
+                        <div class="result-state hidden text-center">
+                            <div class="text-[10px] text-slate-300 mb-1 uppercase tracking-tighter">Your Partner</div>
+                            <div class="target-name font-bold text-3xl text-slate-700"></div>
+                            <div class="mt-4 h-1 w-10 bg-blue-200 mx-auto rounded-full"></div>
+                        </div>
+                    </div>
+                `;
+                card.onclick = () => handleDraw(card);
+                list.appendChild(card);
+            }
+        }
+
+        // 鼠标感应滚动
+        window.addEventListener('mousemove', (e) => {
+            if (isDrawing || document.getElementById('gacha-screen').classList.contains('hidden')) return;
+            const edge = window.innerWidth * 0.2;
+            const container = document.getElementById('card-list');
+            if (e.clientX > window.innerWidth - edge) {
+                scrollPos -= ((e.clientX - (window.innerWidth - edge)) / edge) * 25;
+            } else if (e.clientX < edge) {
+                scrollPos += ((edge - e.clientX) / edge) * 25;
+            }
+            const maxScroll = Math.min(0, window.innerWidth - (17 * 195 + 200));
+            scrollPos = Math.max(maxScroll, Math.min(0, scrollPos));
+            container.style.transform = `translateX(${scrollPos}px)`;
+        });
+
+        async function handleDraw(cardElement) {
+            if (isDrawing || hasFinished) return;
+            
+            isDrawing = true;
+            cardElement.classList.add('flipped');
+            
+            try {
+                const response = await fetch(`${API_URL}?userName=${encodeURIComponent(currentUser)}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    alert(data.error);
+                    cardElement.classList.remove('flipped');
+                    isDrawing = false;
+                    return;
+                }
+
+                // 渲染卡面名字
+                const resultState = cardElement.querySelector('.result-state');
+                const loadingState = cardElement.querySelector('.loading-state');
+                cardElement.querySelector('.target-name').innerText = data.target;
+                loadingState.classList.add('hidden');
+                resultState.classList.remove('hidden');
+
+                // 显示下方提示框
+                const msgBox = document.getElementById('status-msg');
+                const msgContent = document.getElementById('msg-content');
+                
+                // 根据后端返回的 message 判断是否是重复抽取
+                const isRepeat = (data.message === "已重复抽取");
+                hasFinished = true;
+                isDrawing = false;
+
+                if (isRepeat) {
+                    msgContent.innerHTML = `系统检测到你之前已完成抽取。<br>你抽中的对象是 <span class="text-blue-500 font-bold">"${data.target}"</span>`;
+                } else {
+                    msgContent.innerHTML = `恭喜！你抽中了 <span class="text-blue-600 font-bold">"${data.target}"</span>！<br><span class="text-sm text-slate-400">去为 TA 准备一份惊喜小礼物吧~</span>`;
+                }
+                msgBox.classList.add('show');
+
+            } catch (e) {
+                console.error(e);
+                alert("网络好像有点问题，请刷新重试。");
+                cardElement.classList.remove('flipped');
+                isDrawing = false;
+            }
+        }
+    </script>
+</body>
+</html>
