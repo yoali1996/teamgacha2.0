@@ -164,7 +164,7 @@
         function initCards() {
             const list = document.getElementById('card-list');
             list.innerHTML = '';
-            for (let i = 0; i < 17; i++) {
+            for (let i = 0; i < 18; i++) {
                 const card = document.createElement('div');
                 card.className = 'card';
                 card.innerHTML = `
@@ -196,7 +196,7 @@
             } else if (e.clientX < edge) {
                 scrollPos += ((edge - e.clientX) / edge) * 25;
             }
-            const maxScroll = Math.min(0, window.innerWidth - (17 * 195 + 200));
+            const maxScroll = Math.min(0, window.innerWidth - (18 * 195 + 200));
             scrollPos = Math.max(maxScroll, Math.min(0, scrollPos));
             container.style.transform = `translateX(${scrollPos}px)`;
         });
